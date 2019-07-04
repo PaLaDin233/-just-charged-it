@@ -1,0 +1,181 @@
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="xyz.zhhg.jci.dao.BillMapper">
+	
+	<!-- 添加账单 -->
+	<insert id="insertNewBill" parameterType="Bill" keyProperty="id" keyColumn="id" useGeneratedKeys="true">
+	
+	
+	insert into jci.tb_bill_detail
+	  (openid, savingid, detype, spawndate, money, rdtype,remarks)
+	values
+	  (#{openid}, 
+	  <if test="savingid==0">
+		  null, 	  
+	  </if>
+	  <if test="savingid!=0">
+          #{savingid},
+	  </if>
+	  #{detype},
+	  #{spawndate}, 
+	  #{money}, 
+	  #{rdtype},
+	  <if test="remarks==null">
+		null  
+	  </if>
+	  <if test="remarks!=null">
+          #{remarks}
+	  </if>
+	  )
+	  
+	  
+	  
+	</insert>
+	
+	<!-- 删除账单 -->
+	<delete id="deleteBillById" parameterType="Bill">
+		delete jci.tb_bill_detail
+		where id=#{id} 
+		and openid=#{openid}
+	</delete>
+	
+	<update id="updateBillById" parameterType="Bill">
+		update jci.tb_bill_detail
+		<set>
+			<if test="savingid!=0">
+				savingid  = #{savingid},
+			</if>
+			<if test="detype!=0">
+				detype=#{detype},
+			</if>
+			<if test="spawndate!=null">
+				spawndate=#{spawndate},
+			</if>
+			<if test="money!=0">
+				money=#{money},
+			</if>
+				rdtype=#{rdtype},
+				remarks=#{remarks}
+		</set>
+		 where id = #{id}
+		 and openid=#{openid}
+	
+	</update>
+	
+	<select id="selectUserBill" parameterType="xyz.zhhg.jci.model.standard.bill.BillDTO" resultType="Bill">
+	select 
+	  a.id,savingid,detype,spawndate,money,
+	  rdtype,remarks,dename,name
+	from jci.tb_bill_detail a
+	left join (
+     select d.name name,c.name dename ,c.id 
+     from jci.tb_account_detype c,jci.tb_account_type d
+     where d.id=c.typeid
+	) b on a.detype=b.id
+	where openid=#{openid}
+	<if test="detypeList !=null and detypeList.size()!=0">
+	and detype in (
+	<foreach collection="detypeList" item="item" index="index" separator="," >
+		#{item}
+	</foreach>
+	)
+	</if>
+	<if test="beginDate!=null">
+		and spawndate &gt;= #{beginDate}	
+	</if>
+	<if test="endDate!=null">
+		and spawndate &lt;= #{endDate}	
+	</if>
+	<if test="minMoney!=0"> 
+		and money &gt; =#{minMoney}
+	</if>
+	<if test="maxMoney!=0"> 
+		and money &lt; =#{maxMoney}
+	</if>
+	<if test="remarks!=null">
+		and remarks like '%'||#{remarks}||'%'	
+	</if>
+	order by
+	<if test="orders!=null and orders.size()!=0">
+		<foreach collection="orders" item="item">
+			${item.name} ${item.order} ,
+		</foreach>
+	</if>
+	
+	id
+
+	</select>
+	
+	<!-- 获取指定日期内的收入支出总和 -->
+	<select id="getSumMoneyFromBeginDateToEndDate" parameterType="xyz.zhhg.jci.model.standard.bill.BillDTO"
+	resultType="xyz.zhhg.jci.model.standard.bill.statistics.Statistics">
+	select sum(money) money, rdtype
+	  from jci.tb_bill_detail
+	 where openid = #{openid}
+	   and spawndate between #{beginDate} and #{endDate}
+	 group by rdtype
+	 order by rdtype
+	</select>
+	
+	
+	
+	
+
+	<!-- 柱状统计 -->
+	<select id="getStatistics" resultType="xyz.zhhg.jci.model.standard.bill.statistics.Statistics" 
+	parameterType="xyz.zhhg.jci.model.standard.bill.statistics.StatisticsForm">
+	select a.money money <if test="useDate">, a.d time</if> <if test="useDetype">, b.name typename</if>
+	  from (select 
+ 			<trim suffixOverrides=",">
+ 				sum(a.money) money,
+	         	<if test="useDate">to_char(a.spawndate, '${dateMode}') d,</if>
+	         	<if test="useDetype">a.detype,</if>
+	         </trim>
+	          from jci.tb_bill_detail a
+	        
+	         where spawndate between to_date(#{begindate}, 'yyyy-mm-dd') and
+	               to_date(#{enddate}, 'yyyy-mm-dd')
+	           and openid = #{openid}
+	           and exists
+	         (select 1
+	                  from jci.tb_account_detype b, jci.tb_account_type c
+	                 where b.id = a.detype
+	                   and b.typeid = c.id
+	                   and c.type = #{rdtype})
+	          <trim prefix="group by" suffixOverrides=",">
+	         	<if test="useDate">to_char(a.spawndate, '${dateMode}') ,</if>
+	         	<if test="useDetype">a.detype,</if>
+	         </trim>
+	       	)a 
+	  <if test="useDetype">
+	  left join (select a.name || '-' || b.name name, b.id detype
+	               from jci.tb_account_type a, jci.tb_account_detype b
+	              where a.id = b.typeid) b
+	    on a.detype = b.detype 
+	  </if>
+	  <if test="useDate">order by time</if>
+
+	</select>
+	 
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+
+</mapper>

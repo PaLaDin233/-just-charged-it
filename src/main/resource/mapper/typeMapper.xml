@@ -1,0 +1,172 @@
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="xyz.zhhg.jci.dao.TypeMapper">
+
+	<resultMap
+		type="AccountTypes" id="typeList">
+			<id column="id" property="id"/>
+			<result column="openid" property="openid"/>
+			<result column="type" property="type"/>
+			<result column="btname" property="name"/>
+		<collection property="list" ofType ="AccountDetailType">
+			<id column="dtid" property="id"/>
+			<result column="typeid" property="typeid"/>
+			<result column="dtname" property="name"/>
+		</collection>
+
+	</resultMap>
+
+
+	<insert id="initUserTypeList" parameterType="string">
+	begin
+	insert into jci.tb_account_type
+	  (openid, type, name)
+	  (select #{openid}, type, name from jci.tb_account_type where openid = '1');
+		
+	insert into jci.tb_account_detype
+	  (typeid, name)
+	  (select a.id, c.name
+	     from jci.tb_account_type a, jci.tb_account_detype c
+	    where a.openid = #{openid}
+	      and exists (select 1
+	             from jci.tb_account_type b
+	            where b.openid = '1'
+	              and b.id = c.typeid
+	              and a.name = b.name)
+	   );
+	end;
+	</insert>
+	<!-- 添加账目大类 -->
+	<insert id="insertAType" parameterType="AccountTypes">
+		insert into jci.tb_account_type
+		  (openid, name, type)
+		select #{openid}, #{name}, #{type}
+		from dual
+		where not exists(
+			select 1 from jci.tb_account_type
+			where openid=#{openid} 
+			and name=#{name} 
+			and type=#{type}
+		)
+	</insert>
+	<!-- 获取账目大类id -->
+	<select id="getATypeIdByNameAndOpenIdAndType" parameterType="AccountTypes" resultType="int">
+		select id from jci.tb_account_type
+		where openid=#{openid} 
+			and name=#{name} 
+			and type=#{type}
+	</select>
+	
+	<!-- 添加账目细类 -->
+	<insert id="insertDType" parameterType="AccountDetailType">
+	insert into jci.tb_account_detype
+	  (typeid, name)
+	select #{typeid}, #{name} 
+	from dual
+	where not exists(
+		select 1 from jci.tb_account_detype
+		where typeid=#{typeid} and name=#{name}
+	)
+	and exists(
+		select 1 from jci.tb_account_type
+		where id=#{typeid} and openid=#{openid}
+	)
+	</insert>
+	
+	<!-- 获取用户细类id -->
+	<select id="getDTypeIdByTypeIdAndName" parameterType="AccountDetailType" resultType="int">
+		select id from jci.tb_account_detype
+		where typeid=#{typeid} and name=#{name}
+	</select>
+	
+	
+	<!-- 删除账目大类 -->
+	<delete id="deleteAtypeById" parameterType="AccountDetailType">
+		delete from jci.tb_account_type
+		 where id = #{id}
+		   and openid = #{openid}
+	</delete>
+	
+		<!-- 删除指定用户的所有自定义分类 -->
+	<delete id="deleteAtypeByopenId" parameterType="string">
+		delete from jci.tb_account_type
+		where openid=#{openid}
+	</delete>
+	
+	<!-- 删除账目细类 -->
+	<delete id="deleteDtypeById">
+		delete from jci.tb_account_detype a
+		 where id = #{id}
+		   and exists (select 1
+			            from jci.tb_account_type b
+			           where a.typeid = b.id
+			             and b.openid = #{openid})
+	</delete>
+	
+
+	
+	<!-- 修改账目大类 -->
+	<update id="updateAtype" parameterType="AccountTypes">
+		update jci.tb_account_type a
+		   set name = #{name}
+		 where id = #{id}
+		   and openid = #{openid}
+		   and not exists (select 1
+			            from jci.tb_account_type b
+			           where b.openid = #{openid}
+			           and b.name=#{name})
+	</update>
+	
+	<!-- 修改账目细类 -->
+	<update id="updateDtype">
+		update jci.tb_account_detype a
+		<set>
+			<if test="name!=null and name!=''">
+				name = #{name},
+			</if>
+			<if test="typeid!=null and typeid!='' and typeid!=0">
+		        typeid = #{typeid},
+			</if>
+		</set>
+		 where exists (select 1
+			             from jci.tb_account_type b
+			            where b.id = a.typeid
+			              and b.openid = #{openid})
+			<if test="typeid!=null and typeid!='' and typeid!=0">
+		         and exists (select 1
+			             from jci.tb_account_type
+			            where id = #{typeid}
+			              and openid = #{openid})
+			</if>
+	       and a.id = #{id}
+	</update>
+
+
+
+	<select id="getUsersAllExpendType" 
+		resultMap="typeList">
+		select a.id id,
+	       decode(type, '0', '支出', '1', '收入', '未知') type,
+	       a.name btname,
+	       dtid,
+	       typeid,
+	       dtname
+	  from jci.tb_account_type a
+	  left join (select a.id id, b.id dtid, typeid, b.name dtname
+	               from jci.tb_account_type a, jci.tb_account_detype b
+	              where a.type = #{1}
+	                and b.typeid = a.id
+	                and (a.openid = #{0} or a.openid = '1')) b
+	    on b.id = a.id
+	 where (a.openid = #{0}
+	   <!--  or (not exists (select 1 from jci.tb_account_type 
+	    				where openid = #{0} 
+	    				and type=#{1}) and
+	        a.openid = '1') -->)and type=#{1}
+	   order by a.id
+	</select>
+	
+	
+
+</mapper>

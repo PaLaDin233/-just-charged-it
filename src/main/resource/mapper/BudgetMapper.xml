@@ -1,0 +1,142 @@
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="xyz.zhhg.jci.dao.BudgetMapper">
+<!-- 增 -->
+<insert id="insertBudget" parameterType="Budget" keyProperty="id" keyColumn="id" useGeneratedKeys="true">
+insert into jci.tb_budget
+  (openid, budget, begindate, enddate, remarks, budgettype)
+values
+  (#{openid}, #{budget}, 
+  to_date(#{begindate},'yyyy-mm-dd'), to_date(#{enddate},'yyyy-mm-dd'), 
+  #{remarks}, 
+  <if test="budgettype==0">
+  	null
+  </if>
+  <if test="budgettype!=0">
+	  #{budgettype}
+  </if>
+  
+  )
+</insert>
+
+
+
+
+
+<!-- 删-->
+<delete id="deleteBudgetById" parameterType="Budget">
+delete jci.tb_budget
+where id=#{id} and openid=#{openid}
+
+</delete>
+
+<!-- 改 -->
+<update id="updateBudget" parameterType="Budget">
+update jci.tb_budget
+	<set>
+		<if test="budget!=0">
+		   budget     = #{budget},		
+		</if>
+		<if test="begindate!=null and begindate!=''">
+	       begindate  = to_date(#{begindate},'yyyy-mm-dd'),
+		</if>
+		<if test="enddate!=null and enddate!=''">
+	       enddate    = to_date(#{enddate},'yyyy-mm-dd'),		
+		</if>
+		<if test="remarks!=null">
+	       remarks    = #{remarks},
+		</if>
+		<if test="budgettype!=0">
+	       budgettype = #{budgettype},		
+		</if>
+		   id		  = #{id}
+	</set>
+ where id = #{id}
+   and openid = #{openid}
+   and not exists
+ (select 1
+          from jci.tb_budget
+            where openid = #{openid}
+              and id &lt;&gt; #{id}
+              and (
+                  ( 
+                    to_date(#{begindate},'yyyy-mm-dd') between begindate and enddate 
+                    or to_date(#{enddate},'yyyy-mm-dd') between begindate and enddate
+                  )
+                  or 
+                  (
+                    to_date(#{begindate},'yyyy-mm-dd') &lt; begindate
+                    and to_date(#{enddate},'yyyy-mm-dd') &gt; enddate
+                  )
+                  )      
+			  <if test="budgettype!=0">
+				  and budgettype=#{budgettype}
+			  </if>
+              )
+
+
+</update>
+
+
+<!-- 查 -->
+	<!-- 获取满足条件的预算列表 -->
+	<select id="selectBudgetByOpenIdAndDate" parameterType="Budget" resultType="Budget">
+		select id, budget,to_char(begindate,'yyyy-mm-dd') begindate, to_char(enddate,'yyyy-mm-dd') enddate,  remarks, budgettype
+		  from jci.tb_budget
+		 where openid = #{openid}
+		   and ((begindate between to_date(#{begindate}, 'yyyy-mm-dd') and
+		       to_date(#{enddate}, 'yyyy-mm-dd')) or
+		       (enddate between to_date(#{begindate}, 'yyyy-mm-dd') and
+		       to_date(#{enddate}, 'yyyy-mm-dd')))	
+		 order by enddate desc
+	</select>
+	
+	<!-- 获取指定的预算 -->
+	<select id="selectBudgetById" parameterType="Budget" resultType="Budget">
+	select id, budget, to_char(begindate,'yyyy-mm-dd') begindate, to_char(enddate,'yyyy-mm-dd') enddate, remarks, budgettype from jci.tb_budget
+	where openid=#{openid} 
+	<if test="id!=0">
+		and id=#{id}
+	</if>
+	<if test="id==0">
+		and to_date(to_char(sysdate,'yyyy-mm-dd'),'yyyy-mm-dd') between begindate and enddate 
+	</if>
+	<if test="budgettype!=0">
+		and budgettype=#{budgettype}
+	</if>
+	order by enddate desc
+	</select>
+
+
+
+
+
+
+<!-- 获取将要插入的列是否合法 -->
+<select id="isBudgetIllegal" parameterType="Budget" resultType="boolean">
+    (select count(*)
+             from jci.tb_budget
+            where openid = #{openid}
+              and (
+                  ( 
+                    to_date(#{begindate},'yyyy-mm-dd') between begindate and enddate 
+                    or to_date(#{enddate},'yyyy-mm-dd') between begindate and enddate
+                  )
+                  or 
+                  (
+                    to_date(#{begindate},'yyyy-mm-dd') &lt; begindate
+                    and to_date(#{enddate},'yyyy-mm-dd') &gt; enddate
+                  )
+                  )      
+			  <if test="budgettype!=0">
+				  and budgettype=#{budgettype}
+			  </if>
+              )
+</select>
+
+
+
+
+
+</mapper>

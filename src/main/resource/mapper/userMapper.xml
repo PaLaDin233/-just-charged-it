@@ -1,0 +1,89 @@
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- public User findUserByNameAndPwd(String name,String pwd); public User 
+	findUserByName(String name); public boolean insertUser(User user); public 
+	boolean updateUser(User user); -->
+<mapper namespace="xyz.zhhg.jci.dao.UserMapper">
+
+	<insert id="insertUser"
+		parameterType="xyz.zhhg.jci.model.standard.user.Tb_UserInfo">
+		begin
+		insert into jci.tb_userinfo(
+		openid
+		)
+		values(
+		#{openid}
+		);
+		insert into jci.tb_account_type
+		  (openid, type, name)
+		  (select #{openid}, type, name from jci.tb_account_type where openid = '1');
+			
+		insert into jci.tb_account_detype
+		  (typeid, name)
+		  (select a.id, c.name
+		     from jci.tb_account_type a, jci.tb_account_detype c
+		    where a.openid = #{openid}
+		      and exists (select 1
+		             from jci.tb_account_type b
+		            where b.openid = '1'
+		              and b.id = c.typeid
+		              and a.name = b.name)
+		   );
+		end;
+		
+	</insert>
+	<update id="updateUserInfo"
+		parameterType="xyz.zhhg.jci.model.standard.user.Tb_UserInfo">
+		update jci.tb_userinfo
+		<set>
+			openid=openid
+			<if test="avatarUrl!=null and avatarUrl!=''">
+				,avatarurl=#{avatarUrl}
+			</if>
+			<if test="gender!=null and gender!=''">
+				,gender=#{gender}
+			</if>
+			<if test="country!=null and country!=''">
+				,country=#{country}
+			</if>
+			<if test="province!=null and province!=''">
+				,province=#{province}
+			</if>
+			<if test="city!=null and city!=''">
+				,city=#{city}
+			</if>
+			<if test="language!=null and language!=''">
+				,language=#{language}
+			</if>
+			<if test="md5code !=null and md5code!=''">
+				,md5code=#{md5code}
+			</if>
+			<if test="unionid!=null and unionid!=''">
+				,unionid=#{unionid}
+			</if>
+			<if test="nickName!=null and nickName!=''">
+				,nickname=#{nickName}
+			</if>
+
+		</set>
+		where
+		<if test="openid!=null">openid=#{openid}</if>
+		<if test="openid==null">openid=null</if>
+
+	</update>
+
+
+	<select id="getAllUser"
+		resultType="xyz.zhhg.jci.model.standard.user.Tb_UserInfo">
+		select * from jci.tb_userinfo
+	</select>
+
+	<!-- 获得指定openId是否存在 -->
+	<select id="isExistOpenId" parameterType="String"
+		resultType="boolean">
+		select count(*) from jci.tb_userinfo
+		where openid=#{openid}
+	</select>
+
+</mapper>
